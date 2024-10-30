@@ -46,7 +46,16 @@ const ProfileType = new GraphQLObjectType({
     id: { type: new GraphQLNonNull(UUIDType) },
     isMale: { type: new GraphQLNonNull(GraphQLBoolean) },
     yearOfBirth: { type: new GraphQLNonNull(GraphQLInt) },
-    memberType: { type: new GraphQLNonNull(MemberType) },
+    memberType: {
+      type: new GraphQLNonNull(MemberType),
+      resolve: async (parent: { memberTypeId: 'BASIC' | 'BUSINESS' }) => {
+        return await prisma.memberType.findFirst({
+          where: {
+            id: parent.memberTypeId,
+          },
+        });
+      },
+    },
   },
 });
 
@@ -56,8 +65,26 @@ const UserType: GraphQLObjectType = new GraphQLObjectType({
     id: { type: new GraphQLNonNull(UUIDType) },
     name: { type: new GraphQLNonNull(GraphQLString) },
     balance: { type: new GraphQLNonNull(GraphQLFloat) },
-    profile: { type: ProfileType },
-    posts: { type: new GraphQLList(new GraphQLNonNull(PostType)) },
+    profile: {
+      type: ProfileType,
+      resolve: async (parent: { id: string }) => {
+        return await prisma.profile.findFirst({
+          where: {
+            userId: parent.id,
+          },
+        });
+      },
+    },
+    posts: {
+      type: new GraphQLList(new GraphQLNonNull(PostType)),
+      resolve: async (parent: { id: string }) => {
+        return prisma.post.findMany({
+          where: {
+            authorId: parent.id,
+          },
+        });
+      },
+    },
     userSubscribedTo: {
       type: new GraphQLList(new GraphQLNonNull(UserType)),
       resolve: async (parent: { id: string }) => {

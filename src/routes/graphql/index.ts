@@ -22,10 +22,10 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         schema,
         source: query,
         variableValues: variables,
-        contextValue: { prisma },
+        contextValue: prisma,
       });
 
-      await reply.send(result)
+      await reply.send(result);
     },
   });
 };
