@@ -58,8 +58,30 @@ const UserType: GraphQLObjectType = new GraphQLObjectType({
     balance: { type: new GraphQLNonNull(GraphQLFloat) },
     profile: { type: ProfileType },
     posts: { type: new GraphQLList(new GraphQLNonNull(PostType)) },
-    userSubscribedTo: { type: new GraphQLList(new GraphQLNonNull(UserType)) },
-    subscribedToUser: { type: new GraphQLList(new GraphQLNonNull(UserType)) },
+    userSubscribedTo: {
+      type: new GraphQLList(new GraphQLNonNull(UserType)),
+      resolve: async (parent: { id: string }) => {
+        return await prisma.user.findMany({
+          where: {
+            subscribedToUser: {
+              some: { subscriberId: parent.id },
+            },
+          },
+        });
+      },
+    },
+    subscribedToUser: {
+      type: new GraphQLList(new GraphQLNonNull(UserType)),
+      resolve: async (parent: { id: string }) => {
+        return await prisma.user.findMany({
+          where: {
+            userSubscribedTo: {
+              some: { authorId: parent.id },
+            },
+          },
+        });
+      },
+    },
   }),
 });
 
