@@ -9,7 +9,10 @@ import {
   GraphQLSchema,
   GraphQLString,
 } from 'graphql';
+import { PrismaClient } from '@prisma/client';
 import { UUIDType } from './types/uuid.js';
+
+const prisma = new PrismaClient();
 
 const MemberEnum = new GraphQLEnumType({
   name: 'MemberEnum',
@@ -63,31 +66,73 @@ const UserType: GraphQLObjectType = new GraphQLObjectType({
 const RootQueryType = new GraphQLObjectType({
   name: 'RootQueryType',
   fields: {
-    memberTypes: { type: new GraphQLList(new GraphQLNonNull(MemberType)) },
+    memberTypes: {
+      type: new GraphQLList(new GraphQLNonNull(MemberType)),
+      resolve: async () => {
+        return await prisma.memberType.findMany();
+      },
+    },
     memberType: {
       type: MemberType,
       args: { id: { type: new GraphQLNonNull(MemberEnum) } },
+      resolve: async (_, { id }: { id: 'BASIC' | 'BUSINESS' }) => {
+        return await prisma.memberType.findUnique({
+          where: {
+            id,
+          },
+        });
+      },
     },
     users: {
       type: new GraphQLList(new GraphQLNonNull(UserType)),
+      resolve: async () => {
+        return await prisma.user.findMany();
+      },
     },
     user: {
       type: UserType,
       args: { id: { type: new GraphQLNonNull(UUIDType) } },
+      resolve: async (_, { id }: { id: 'BASIC' | 'BUSINESS' }) => {
+        return await prisma.user.findUnique({
+          where: {
+            id,
+          },
+        });
+      },
     },
     posts: {
       type: new GraphQLList(new GraphQLNonNull(PostType)),
+      resolve: async () => {
+        return await prisma.post.findMany();
+      },
     },
     post: {
       type: PostType,
       args: { id: { type: new GraphQLNonNull(UUIDType) } },
+      resolve: async (_, { id }: { id: 'BASIC' | 'BUSINESS' }) => {
+        return await prisma.post.findUnique({
+          where: {
+            id,
+          },
+        });
+      },
     },
     profiles: {
       type: new GraphQLList(new GraphQLNonNull(ProfileType)),
+      resolve: async () => {
+        return await prisma.profile.findMany();
+      },
     },
     profile: {
       type: ProfileType,
       args: { id: { type: new GraphQLNonNull(UUIDType) } },
+      resolve: async (_, { id }: { id: 'BASIC' | 'BUSINESS' }) => {
+        return await prisma.profile.findUnique({
+          where: {
+            id,
+          },
+        });
+      },
     },
   },
 });
