@@ -357,15 +357,37 @@ const Mutations = new GraphQLObjectType({
     subscribeTo: {
       type: new GraphQLNonNull(GraphQLString),
       args: {
-        id: { type: new GraphQLNonNull(UUIDType) },
+        userId: { type: new GraphQLNonNull(UUIDType) },
         authorId: { type: new GraphQLNonNull(UUIDType) },
+      },
+      resolve: async (_, args: { userId: string; authorId: string }) => {
+        console.log(args)
+        await prisma.subscribersOnAuthors.create({
+          data: {
+            subscriberId: args.userId,
+            authorId: args.authorId,
+          },
+        });
+        return `User with ID ${args.authorId} successfully subscribed to ${args.userId}`
       },
     },
     unsubscribeFrom: {
       type: new GraphQLNonNull(GraphQLString),
       args: {
-        id: { type: new GraphQLNonNull(UUIDType) },
+        userId: { type: new GraphQLNonNull(UUIDType) },
         authorId: { type: new GraphQLNonNull(UUIDType) },
+      },
+      resolve: async (_, args: { userId: string; authorId: string }) => {
+        console.log(args)
+        await prisma.subscribersOnAuthors.delete({
+          where: {
+            subscriberId_authorId: {
+              subscriberId: args.userId,
+              authorId: args.authorId,
+            }
+          },
+        });
+        return `User with ID ${args.authorId} successfully unsubscribed to ${args.userId}`
       },
     },
   },
