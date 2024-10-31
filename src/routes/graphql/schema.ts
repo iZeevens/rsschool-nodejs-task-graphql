@@ -323,17 +323,35 @@ const Mutations = new GraphQLObjectType({
       args: {
         id: { type: new GraphQLNonNull(UUIDType) },
       },
+      resolve: async (_, args: { id: string }) => {
+        await prisma.user.delete({
+          where: { id: args.id },
+        });
+        return `User with ID ${args.id} has been deleted successfully`;
+      },
     },
     deletePost: {
       type: new GraphQLNonNull(GraphQLString),
       args: {
         id: { type: new GraphQLNonNull(UUIDType) },
       },
+      resolve: async (_, args: { id: string }) => {
+        await prisma.post.delete({
+          where: { id: args.id },
+        });
+        return `Post with ID ${args.id} has been deleted successfully`;
+      },
     },
     deleteProfile: {
       type: new GraphQLNonNull(GraphQLString),
       args: {
         id: { type: new GraphQLNonNull(UUIDType) },
+      },
+      resolve: async (_, args: { id: string }) => {
+        await prisma.profile.delete({
+          where: { id: args.id },
+        });
+        return `Profile with ID ${args.id} has been deleted successfully`;
       },
     },
     subscribeTo: {
