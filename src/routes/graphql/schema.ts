@@ -11,6 +11,7 @@ import {
 } from 'graphql';
 import { PrismaClient } from '@prisma/client';
 import { UUIDType } from './types/uuid.js';
+import Mutations from './mutations.js';
 
 const prisma = new PrismaClient();
 
@@ -188,6 +189,7 @@ const RootQueryType = new GraphQLObjectType({
 
 const schema = new GraphQLSchema({
   query: RootQueryType,
+  mutation: Mutations,
 });
 
-export default schema;
+export { schema, MemberTypeId, UserType, ProfileType, PostType };
