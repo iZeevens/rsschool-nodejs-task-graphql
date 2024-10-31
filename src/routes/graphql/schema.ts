@@ -12,6 +12,8 @@ import {
 } from 'graphql';
 import { PrismaClient } from '@prisma/client';
 import { UUIDType } from './types/uuid.js';
+import { IPostType } from './types/schemaTypes.js';
+import { randomUUID } from 'node:crypto';
 
 const prisma = new PrismaClient();
 
@@ -251,10 +253,22 @@ const Mutations = new GraphQLObjectType({
     createProfile: {
       type: new GraphQLNonNull(ProfileType),
       args: { dto: { type: new GraphQLNonNull(CreateProfileInputType) } },
+      // resolve: async (_, args: {dto: }) => {
+      //   const id = randomUUID();
+
+      //   return await prisma.profile.create({})
+      // }
     },
     createPost: {
       type: new GraphQLNonNull(PostType),
       args: { dto: { type: new GraphQLNonNull(CreatePostInputType) } },
+      resolve: async (_, args: { dto: IPostType }) => {
+        const id = randomUUID();
+
+        return await prisma.post.create({
+          data: { id, ...args.dto },
+        });
+      },
     },
     changePost: {
       type: new GraphQLNonNull(PostType),
