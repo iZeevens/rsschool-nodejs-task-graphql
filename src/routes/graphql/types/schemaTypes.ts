@@ -8,4 +8,10 @@ type IProfileType = {
   memberType: object;
 };
 
-export type { IPostType, IProfileType };
+type IUserType = {
+  id?: string;
+  name: string;
+  balance: number;
+};
+
+export type { IPostType, IProfileType, IUserType };
