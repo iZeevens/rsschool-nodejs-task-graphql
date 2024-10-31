@@ -285,6 +285,12 @@ const Mutations = new GraphQLObjectType({
         id: { type: new GraphQLNonNull(UUIDType) },
         dto: { type: new GraphQLNonNull(ChangePostInputType) },
       },
+      resolve: async (_, args: { id: string; dto: IPostType }) => {
+        return await prisma.post.update({
+          where: { id: args.id },
+          data: args.dto,
+        });
+      },
     },
     changeProfile: {
       type: new GraphQLNonNull(ProfileType),
@@ -292,12 +298,24 @@ const Mutations = new GraphQLObjectType({
         id: { type: new GraphQLNonNull(UUIDType) },
         dto: { type: new GraphQLNonNull(ChangeProfileInputType) },
       },
+      resolve: async (_, args: { id: string; dto: IProfileType }) => {
+        return await prisma.profile.update({
+          where: { id: args.id },
+          data: args.dto,
+        });
+      },
     },
     changeUser: {
       type: new GraphQLNonNull(UserType),
       args: {
         id: { type: new GraphQLNonNull(UUIDType) },
         dto: { type: new GraphQLNonNull(ChangeUserInputType) },
+      },
+      resolve: async (_, args: { id: string; dto: IUserType }) => {
+        return await prisma.user.update({
+          where: { id: args.id },
+          data: args.dto,
+        });
       },
     },
     deleteUser: {
