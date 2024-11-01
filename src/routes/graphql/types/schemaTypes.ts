@@ -20,4 +20,11 @@ type IMemberType = {
   postsLimitPerMonth: number;
 };
 
-export type { IPostType, IProfileType, IUserType, IMemberType };
+type ISubsriberType = {
+  subscribedToUser?: {
+    subscriberId: string;
+    authorId: string;
+  }[];
+};
+
+export type { IPostType, IProfileType, IUserType, IMemberType, ISubsriberType };

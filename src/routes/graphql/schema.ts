@@ -12,12 +12,7 @@ import {
 } from 'graphql';
 import { PrismaClient } from '@prisma/client';
 import { UUIDType } from './types/uuid.js';
-import {
-  IPostType,
-  IProfileType,
-  IUserType,
-  IMemberType,
-} from './types/schemaTypes.js';
+import { IPostType, IProfileType, IUserType, IMemberType, ISubsriberType } from './types/schemaTypes.js';
 import { randomUUID } from 'node:crypto';
 import DataLoader from 'dataloader';
 
@@ -88,23 +83,6 @@ const ProfileType = new GraphQLObjectType({
       },
     },
   },
-});
-
-const userSubscribedToLoader = new DataLoader(async (subscriberId) => {
-  const subTo = await prisma.user.findMany({
-    where: {
-      subscribedToUser: { some: { subscriberId: { in: subscriberId as string[] } } },
-    },
-    include: {
-      subscribedToUser: true,
-    },
-  });
-
-  return subscriberId.map((subscriberId) =>
-    subTo.filter((user) =>
-      user.subscribedToUser.some((sub) => sub.subscriberId === subscriberId),
-    ),
-  );
 });
 
 const subscribedToUserLoader = new DataLoader(async (subscribedToUser) => {
@@ -194,8 +172,38 @@ const UserType: GraphQLObjectType = new GraphQLObjectType({
     },
     userSubscribedTo: {
       type: new GraphQLList(new GraphQLNonNull(UserType)),
-      resolve: async (parent: { id: string }) => {
-        return userSubscribedToLoader.load(parent.id);
+      resolve: async (parent: { id: string }, args, context, info) => {
+        const { dataloaders, prisma } = context as {
+          dataloaders: WeakMap<object, DataLoader<string, ISubsriberType[] | null>>;
+          prisma: PrismaClient;
+        };
+
+        let dl = dataloaders.get(info.fieldNodes);
+
+        if (!dl) {
+          dl = new DataLoader(async (subscriberId: readonly string[]) => {
+            const subTo = await prisma.user.findMany({
+              where: {
+                subscribedToUser: {
+                  some: { subscriberId: { in: subscriberId as string[] } },
+                },
+              },
+              include: {
+                subscribedToUser: true,
+              },
+            });
+
+            return subscriberId.map((subscriberId) =>
+              subTo.filter((user) =>
+                user.subscribedToUser.some((sub) => sub.subscriberId === subscriberId),
+              ),
+            );
+          });
+
+          dataloaders.set(info.fieldNodes, dl);
+        }
+
+        return dl?.load(parent.id);
       },
     },
     subscribedToUser: {
