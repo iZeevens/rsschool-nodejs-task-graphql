@@ -90,16 +90,6 @@ const ProfileType = new GraphQLObjectType({
   },
 });
 
-const postsLoader = new DataLoader(async (authorIds) => {
-  const posts = await prisma.post.findMany({
-    where: { authorId: { in: authorIds as string[] } },
-  });
-
-  return authorIds.map((authorId) => {
-    return posts.filter((post) => post.authorId === authorId);
-  });
-});
-
 const userSubscribedToLoader = new DataLoader(async (subscriberId) => {
   const subTo = await prisma.user.findMany({
     where: {
@@ -144,16 +134,11 @@ const UserType: GraphQLObjectType = new GraphQLObjectType({
     balance: { type: new GraphQLNonNull(GraphQLFloat) },
     profile: {
       type: ProfileType,
-      resolve: async (
-        parent: { id: string },
-        _,
-        context: {
+      resolve: async (parent: { id: string }, _, context, info) => {
+        const { dataloaders, prisma } = context as {
           dataloaders: WeakMap<object, DataLoader<string, IProfileType | null>>;
           prisma: PrismaClient;
-        },
-        info,
-      ) => {
-        const { dataloaders, prisma } = context;
+        };
 
         let dl = dataloaders.get(info.fieldNodes);
 
@@ -179,8 +164,32 @@ const UserType: GraphQLObjectType = new GraphQLObjectType({
     },
     posts: {
       type: new GraphQLList(new GraphQLNonNull(PostType)),
-      resolve: async (parent: { id: string }) => {
-        return postsLoader.load(parent.id);
+      resolve: async (parent: { id: string }, _, context, info) => {
+        const { dataloaders, prisma } = context as {
+          dataloaders: WeakMap<object, DataLoader<string, IPostType[] | null>>;
+          prisma: PrismaClient;
+        };
+
+        let dl = dataloaders.get(info.fieldNodes);
+
+        if (!dl) {
+          dl = new DataLoader(async (authorIds: readonly string[]) => {
+            const posts = await prisma.post.findMany({
+              where: { authorId: { in: authorIds as string[] } },
+              include: {
+                author: true,
+              },
+            });
+
+            return authorIds.map((authorId) =>
+              posts.filter((post) => post.authorId === authorId),
+            );
+          });
+
+          dataloaders.set(info.fieldNodes, dl);
+        }
+
+        return dl?.load(parent.id);
       },
     },
     userSubscribedTo: {
