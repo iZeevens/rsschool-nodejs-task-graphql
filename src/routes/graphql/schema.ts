@@ -14,6 +14,7 @@ import { PrismaClient } from '@prisma/client';
 import { UUIDType } from './types/uuid.js';
 import { IPostType, IProfileType, IUserType } from './types/schemaTypes.js';
 import { randomUUID } from 'node:crypto';
+import DataLoader from 'dataloader';
 
 const prisma = new PrismaClient();
 
@@ -63,6 +64,60 @@ const ProfileType = new GraphQLObjectType({
   },
 });
 
+const profileLoader = new DataLoader(async (userIds) => {
+  const profiles = await prisma.profile.findMany({
+    where: { userId: { in: userIds as string[] } },
+  });
+
+  return userIds.map((id) => profiles.find((profile) => profile.userId === id) || null);
+});
+
+const postsLoader = new DataLoader(async (authorIds) => {
+  const posts = await prisma.post.findMany({
+    where: { authorId: { in: authorIds as string[] } },
+  });
+
+  return authorIds.map((authorId) => {
+    return posts.filter((post) => post.authorId === authorId);
+  });
+});
+
+const userSubscribedToLoader = new DataLoader(async (subscriberId) => {
+  const subTo = await prisma.user.findMany({
+    where: {
+      subscribedToUser: { some: { subscriberId: { in: subscriberId as string[] } } },
+    },
+    include: {
+      subscribedToUser: true,
+    },
+  });
+
+  return subscriberId.map((subscriberId) =>
+    subTo.filter((user) =>
+      user.subscribedToUser.some((sub) => sub.subscriberId === subscriberId),
+    ),
+  );
+});
+
+const subscribedToUserLoader = new DataLoader(async (subscribedToUser) => {
+  const users = await prisma.user.findMany({
+    where: {
+      userSubscribedTo: { some: { authorId: { in: subscribedToUser as string[] } } },
+    },
+    include: {
+      userSubscribedTo: true,
+    },
+  });
+
+  const result = subscribedToUser.map((id) =>
+    users.filter((user) =>
+      user.userSubscribedTo.some((subscription) => subscription.authorId === id),
+    ),
+  );
+
+  return result;
+});
+
 const UserType: GraphQLObjectType = new GraphQLObjectType({
   name: 'User',
   fields: () => ({
@@ -72,45 +127,25 @@ const UserType: GraphQLObjectType = new GraphQLObjectType({
     profile: {
       type: ProfileType,
       resolve: async (parent: { id: string }) => {
-        return await prisma.profile.findFirst({
-          where: {
-            userId: parent.id,
-          },
-        });
+        return profileLoader.load(parent.id);
       },
     },
     posts: {
       type: new GraphQLList(new GraphQLNonNull(PostType)),
       resolve: async (parent: { id: string }) => {
-        return prisma.post.findMany({
-          where: {
-            authorId: parent.id,
-          },
-        });
+        return postsLoader.load(parent.id);
       },
     },
     userSubscribedTo: {
       type: new GraphQLList(new GraphQLNonNull(UserType)),
       resolve: async (parent: { id: string }) => {
-        return await prisma.user.findMany({
-          where: {
-            subscribedToUser: {
-              some: { subscriberId: parent.id },
-            },
-          },
-        });
+        return userSubscribedToLoader.load(parent.id);
       },
     },
     subscribedToUser: {
       type: new GraphQLList(new GraphQLNonNull(UserType)),
       resolve: async (parent: { id: string }) => {
-        return await prisma.user.findMany({
-          where: {
-            userSubscribedTo: {
-              some: { authorId: parent.id },
-            },
-          },
-        });
+        return subscribedToUserLoader.load(parent.id);
       },
     },
   }),
@@ -361,14 +396,14 @@ const Mutations = new GraphQLObjectType({
         authorId: { type: new GraphQLNonNull(UUIDType) },
       },
       resolve: async (_, args: { userId: string; authorId: string }) => {
-        console.log(args)
+        console.log(args);
         await prisma.subscribersOnAuthors.create({
           data: {
             subscriberId: args.userId,
             authorId: args.authorId,
           },
         });
-        return `User with ID ${args.authorId} successfully subscribed to ${args.userId}`
+        return `User with ID ${args.authorId} successfully subscribed to ${args.userId}`;
       },
     },
     unsubscribeFrom: {
@@ -378,16 +413,16 @@ const Mutations = new GraphQLObjectType({
         authorId: { type: new GraphQLNonNull(UUIDType) },
       },
       resolve: async (_, args: { userId: string; authorId: string }) => {
-        console.log(args)
+        console.log(args);
         await prisma.subscribersOnAuthors.delete({
           where: {
             subscriberId_authorId: {
               subscriberId: args.userId,
               authorId: args.authorId,
-            }
+            },
           },
         });
-        return `User with ID ${args.authorId} successfully unsubscribed to ${args.userId}`
+        return `User with ID ${args.authorId} successfully unsubscribed to ${args.userId}`;
       },
     },
   },
