@@ -30,7 +30,10 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         schema,
         source: query,
         variableValues: variables,
-        contextValue: prisma,
+        contextValue: {
+          prisma: prisma,
+          dataloaders: new WeakMap(),
+        },
       });
 
       await reply.send(result);

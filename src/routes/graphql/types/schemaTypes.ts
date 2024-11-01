@@ -1,3 +1,6 @@
+import { Prisma, PrismaClient } from "@prisma/client";
+import { DefaultArgs } from "@prisma/client/runtime/library.js";
+
 type IPostType = { id?: string; title: string; content: string; authorId: string };
 
 type IProfileType = {
@@ -14,4 +17,9 @@ type IUserType = {
   balance: number;
 };
 
-export type { IPostType, IProfileType, IUserType };
+type ContextType = {
+  prisma: PrismaClient<Prisma.PrismaClientOptions, never, DefaultArgs>;
+  dataloaders: WeakMap<object, object>
+};
+
+export type { IPostType, IProfileType, IUserType, ContextType };

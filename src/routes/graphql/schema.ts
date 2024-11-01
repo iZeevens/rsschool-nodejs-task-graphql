@@ -12,7 +12,7 @@ import {
 } from 'graphql';
 import { PrismaClient } from '@prisma/client';
 import { UUIDType } from './types/uuid.js';
-import { IPostType, IProfileType, IUserType } from './types/schemaTypes.js';
+import { IPostType, IProfileType, IUserType, ContextType } from './types/schemaTypes.js';
 import { randomUUID } from 'node:crypto';
 import DataLoader from 'dataloader';
 
@@ -53,7 +53,14 @@ const ProfileType = new GraphQLObjectType({
     yearOfBirth: { type: new GraphQLNonNull(GraphQLInt) },
     memberType: {
       type: new GraphQLNonNull(MemberType),
-      resolve: async (parent: { memberTypeId: 'BASIC' | 'BUSINESS' }) => {
+      resolve: async (
+        parent: { memberTypeId: 'BASIC' | 'BUSINESS' },
+        args,
+        context: {
+          dataloaders: WeakMap<object, DataLoader<string, IProfileType | null>>;
+          prisma: PrismaClient;
+        },
+      ) => {
         return await prisma.memberType.findFirst({
           where: {
             id: parent.memberTypeId,
@@ -62,14 +69,6 @@ const ProfileType = new GraphQLObjectType({
       },
     },
   },
-});
-
-const profileLoader = new DataLoader(async (userIds) => {
-  const profiles = await prisma.profile.findMany({
-    where: { userId: { in: userIds as string[] } },
-  });
-
-  return userIds.map((id) => profiles.find((profile) => profile.userId === id) || null);
 });
 
 const postsLoader = new DataLoader(async (authorIds) => {
@@ -126,8 +125,37 @@ const UserType: GraphQLObjectType = new GraphQLObjectType({
     balance: { type: new GraphQLNonNull(GraphQLFloat) },
     profile: {
       type: ProfileType,
-      resolve: async (parent: { id: string }) => {
-        return profileLoader.load(parent.id);
+      resolve: async (
+        parent: { id: string },
+        _,
+        context: {
+          dataloaders: WeakMap<object, DataLoader<string, IProfileType | null>>;
+          prisma: PrismaClient;
+        },
+        info,
+      ) => {
+        const { dataloaders, prisma } = context;
+
+        let dl = dataloaders.get(info.fieldNodes);
+
+        if (!dl) {
+          dl = new DataLoader(async (userIds: readonly string[]) => {
+            const profiles = await prisma.profile.findMany({
+              where: { userId: { in: userIds as string[] } },
+              include: {
+                user: true,
+                memberType: true,
+              },
+            });
+            return userIds.map(
+              (id) => profiles.find((profile) => profile.userId === id) || null,
+            );
+          });
+
+          dataloaders.set(info.fieldNodes, dl);
+        }
+
+        return dl?.load(parent.id);
       },
     },
     posts: {
