@@ -1,5 +1,5 @@
-import { Prisma, PrismaClient } from "@prisma/client";
-import { DefaultArgs } from "@prisma/client/runtime/library.js";
+import { Prisma, PrismaClient } from '@prisma/client';
+import { DefaultArgs } from '@prisma/client/runtime/library.js';
 
 type IPostType = { id?: string; title: string; content: string; authorId: string };
 
@@ -17,9 +17,15 @@ type IUserType = {
   balance: number;
 };
 
-type ContextType = {
-  prisma: PrismaClient<Prisma.PrismaClientOptions, never, DefaultArgs>;
-  dataloaders: WeakMap<object, object>
+type IMemberType = {
+  id: string;
+  discount: number;
+  postsLimitPerMonth: number;
 };
 
-export type { IPostType, IProfileType, IUserType, ContextType };
+type ContextType = {
+  prisma: PrismaClient<Prisma.PrismaClientOptions, never, DefaultArgs>;
+  dataloaders: WeakMap<object, object>;
+};
+
+export type { IPostType, IProfileType, IUserType, IMemberType, ContextType };

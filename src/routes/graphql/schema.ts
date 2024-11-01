@@ -12,7 +12,12 @@ import {
 } from 'graphql';
 import { PrismaClient } from '@prisma/client';
 import { UUIDType } from './types/uuid.js';
-import { IPostType, IProfileType, IUserType, ContextType } from './types/schemaTypes.js';
+import {
+  IPostType,
+  IProfileType,
+  IUserType,
+  IMemberType,
+} from './types/schemaTypes.js';
 import { randomUUID } from 'node:crypto';
 import DataLoader from 'dataloader';
 
@@ -55,17 +60,31 @@ const ProfileType = new GraphQLObjectType({
       type: new GraphQLNonNull(MemberType),
       resolve: async (
         parent: { memberTypeId: 'BASIC' | 'BUSINESS' },
-        args,
+        _,
         context: {
-          dataloaders: WeakMap<object, DataLoader<string, IProfileType | null>>;
+          dataloaders: WeakMap<object, DataLoader<string, IMemberType | null>>;
           prisma: PrismaClient;
         },
+        info,
       ) => {
-        return await prisma.memberType.findFirst({
-          where: {
-            id: parent.memberTypeId,
-          },
-        });
+        const { dataloaders, prisma } = context;
+
+        let dl = dataloaders.get(info.fieldNodes);
+
+        if (!dl) {
+          dl = new DataLoader(async (userIds: readonly string[]) => {
+            const profiles = await prisma.memberType.findMany({
+              where: { id: { in: userIds as string[] } },
+            });
+            return userIds.map(
+              (id) => profiles.find((profile) => profile.id === id) || null,
+            );
+          });
+
+          dataloaders.set(info.fieldNodes, dl);
+        }
+
+        return dl.load(parent.memberTypeId);
       },
     },
   },
