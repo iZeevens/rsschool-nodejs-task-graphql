@@ -12,13 +12,7 @@ import {
 } from 'graphql';
 import { PrismaClient } from '@prisma/client';
 import { UUIDType } from './types/uuid.js';
-import {
-  IPostType,
-  IProfileType,
-  IUserType,
-  IMemberType,
-  ISubsriberType,
-} from './types/schemaTypes.js';
+import { IPostType, IProfileType, IUserType, IMemberType, ISubsriberType } from './types/schemaTypes.js';
 import { randomUUID } from 'node:crypto';
 import DataLoader from 'dataloader';
 
@@ -178,9 +172,9 @@ const UserType: GraphQLObjectType = new GraphQLObjectType({
     },
     userSubscribedTo: {
       type: new GraphQLList(new GraphQLNonNull(UserType)),
-      resolve: async (parent: { id: string }, _, context, info) => {
+      resolve: async (parent: { id: string }, args, context, info) => {
         const { dataloaders, prisma } = context as {
-          dataloaders: WeakMap<object, DataLoader<string, IUserType[]>>;
+          dataloaders: WeakMap<object, DataLoader<string, ISubsriberType[] | null>>;
           prisma: PrismaClient;
         };
 
@@ -188,24 +182,22 @@ const UserType: GraphQLObjectType = new GraphQLObjectType({
 
         if (!dl) {
           dl = new DataLoader(async (subscriberId: readonly string[]) => {
-            const users = await prisma.user.findMany({
+            const subTo = await prisma.user.findMany({
               where: {
-                userSubscribedTo: {
+                subscribedToUser: {
                   some: { subscriberId: { in: subscriberId as string[] } },
                 },
               },
               include: {
-                userSubscribedTo: true,
+                subscribedToUser: true,
               },
             });
 
-            const result = subscriberId.map((subscriberId) =>
-              users.filter((user) =>
-                user.userSubscribedTo.some((sub) => sub.subscriberId === subscriberId),
+            return subscriberId.map((subscriberId) =>
+              subTo.filter((user) =>
+                user.subscribedToUser.some((sub) => sub.subscriberId === subscriberId),
               ),
             );
-
-            return result
           });
 
           dataloaders.set(info.fieldNodes, dl);
@@ -246,23 +238,9 @@ const RootQueryType = new GraphQLObjectType({
     users: {
       type: new GraphQLList(new GraphQLNonNull(UserType)),
       resolve: async () => {
-        return await prisma.user.findMany({
-          include: {
-            userSubscribedTo: {
-              include: {
-                author: true,
-              },
-            },
-            subscribedToUser: {
-              include: {
-                subscriber: true,
-              },
-            },
-          },
-        });
+        return await prisma.user.findMany();
       },
     },
-
     user: {
       type: UserType,
       args: { id: { type: new GraphQLNonNull(UUIDType) } },
