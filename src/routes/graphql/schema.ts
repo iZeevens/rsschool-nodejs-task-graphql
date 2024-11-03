@@ -15,6 +15,11 @@ import { UUIDType } from './types/uuid.js';
 import { IPostType, IProfileType, IUserType, IMemberType } from './types/schemaTypes.js';
 import { randomUUID } from 'node:crypto';
 import DataLoader from 'dataloader';
+import {
+  parseResolveInfo,
+  ResolveTree,
+  simplifyParsedResolveInfoFragmentWithType,
+} from 'graphql-parse-resolve-info';
 
 const prisma = new PrismaClient();
 
@@ -93,7 +98,12 @@ const UserType: GraphQLObjectType = new GraphQLObjectType({
     balance: { type: new GraphQLNonNull(GraphQLFloat) },
     profile: {
       type: ProfileType,
-      resolve: async (parent: { id: string }, _, context, info) => {
+      resolve: async (
+        parent: { id: string; subscribedToUser: object; userSubscribedTo: object },
+        _,
+        context,
+        info,
+      ) => {
         const { dataloaders, prisma } = context as {
           dataloaders: WeakMap<object, DataLoader<string, IProfileType | null>>;
           prisma: PrismaClient;
@@ -123,7 +133,12 @@ const UserType: GraphQLObjectType = new GraphQLObjectType({
     },
     posts: {
       type: new GraphQLList(new GraphQLNonNull(PostType)),
-      resolve: async (parent: { id: string }, _, context, info) => {
+      resolve: async (
+        parent: { id: string; subscribedToUser: object; userSubscribedTo: object },
+        _,
+        context,
+        info,
+      ) => {
         const { dataloaders, prisma } = context as {
           dataloaders: WeakMap<object, DataLoader<string, IPostType[] | null>>;
           prisma: PrismaClient;
@@ -153,7 +168,12 @@ const UserType: GraphQLObjectType = new GraphQLObjectType({
     },
     userSubscribedTo: {
       type: new GraphQLList(new GraphQLNonNull(UserType)),
-      resolve: async (parent: { id: string }, args, context, info) => {
+      resolve: async (
+        parent: { id: string; subscribedToUser: object; userSubscribedTo: object },
+        args,
+        context,
+        info,
+      ) => {
         const { dataloaders, prisma } = context as {
           dataloaders: WeakMap<object, DataLoader<string, IUserType[] | null>>;
           prisma: PrismaClient;
@@ -191,7 +211,12 @@ const UserType: GraphQLObjectType = new GraphQLObjectType({
     },
     subscribedToUser: {
       type: new GraphQLList(new GraphQLNonNull(UserType)),
-      resolve: async (parent: { id: string }, args, context, info) => {
+      resolve: async (
+        parent: { id: string; subscribedToUser: object; userSubscribedTo: object },
+        args,
+        context,
+        info,
+      ) => {
         const { dataloaders, prisma } = context as {
           dataloaders: WeakMap<object, DataLoader<string, IUserType[] | null>>;
           prisma: PrismaClient;
@@ -254,8 +279,27 @@ const RootQueryType = new GraphQLObjectType({
     },
     users: {
       type: new GraphQLList(new GraphQLNonNull(UserType)),
-      resolve: async () => {
-        return await prisma.user.findMany();
+      resolve: async (_, __, context, info) => {
+        const { prisma } = context as {
+          dataloaders: WeakMap<object, DataLoader<string, IUserType | null>>;
+          prisma: PrismaClient;
+        };
+        const parsedResolveInfoFragment = parseResolveInfo(info) as ResolveTree;
+        const { fields } = simplifyParsedResolveInfoFragmentWithType(
+          parsedResolveInfoFragment,
+          UserType,
+        ) as { fields: { userSubscribedTo?: object; subscribedToUser?: object } };
+        const includesSubscriptions = {} as {
+          subscribedToUser: boolean;
+          userSubscribedTo: boolean;
+        };
+
+        if (fields.subscribedToUser) includesSubscriptions.subscribedToUser = true;
+        if (fields.userSubscribedTo) includesSubscriptions.userSubscribedTo = true;
+
+        return await prisma.user.findMany({
+          include: includesSubscriptions,
+        });
       },
     },
     user: {
