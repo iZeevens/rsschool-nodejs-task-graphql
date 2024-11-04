@@ -235,8 +235,6 @@ const UserType: GraphQLObjectType = new GraphQLObjectType({
               ),
             );
 
-            console.log(result);
-
             return result;
           });
 
@@ -298,7 +296,6 @@ const UserType: GraphQLObjectType = new GraphQLObjectType({
               ),
             );
 
-            console.log(result[0][0].userSubscribedTo);
             return result;
           });
 
