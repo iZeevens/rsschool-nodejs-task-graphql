@@ -12,7 +12,13 @@ import {
 } from 'graphql';
 import { PrismaClient } from '@prisma/client';
 import { UUIDType } from './types/uuid.js';
-import { IPostType, IProfileType, IUserType, IMemberType } from './types/schemaTypes.js';
+import {
+  IPostType,
+  IProfileType,
+  IUserType,
+  IMemberType,
+  ISubsriberType,
+} from './types/schemaTypes.js';
 import { randomUUID } from 'node:crypto';
 import DataLoader from 'dataloader';
 import {
@@ -99,7 +105,17 @@ const UserType: GraphQLObjectType = new GraphQLObjectType({
     profile: {
       type: ProfileType,
       resolve: async (
-        parent: { id: string; subscribedToUser: object; userSubscribedTo: object },
+        parent: {
+          id: string;
+          subscribedToUser: Array<{
+            subscriberId: string;
+            authorId: string;
+          }>;
+          userSubscribedTo: Array<{
+            subscriberId: string;
+            authorId: string;
+          }>;
+        },
         _,
         context,
         info,
@@ -134,7 +150,17 @@ const UserType: GraphQLObjectType = new GraphQLObjectType({
     posts: {
       type: new GraphQLList(new GraphQLNonNull(PostType)),
       resolve: async (
-        parent: { id: string; subscribedToUser: object; userSubscribedTo: object },
+        parent: {
+          id: string;
+          subscribedToUser: Array<{
+            subscriberId: string;
+            authorId: string;
+          }>;
+          userSubscribedTo: Array<{
+            subscriberId: string;
+            authorId: string;
+          }>;
+        },
         _,
         context,
         info,
@@ -169,7 +195,17 @@ const UserType: GraphQLObjectType = new GraphQLObjectType({
     userSubscribedTo: {
       type: new GraphQLList(new GraphQLNonNull(UserType)),
       resolve: async (
-        parent: { id: string; subscribedToUser: object; userSubscribedTo: object },
+        parent: {
+          id: string;
+          subscribedToUser: Array<{
+            subscriberId: string;
+            authorId: string;
+          }>;
+          userSubscribedTo: Array<{
+            subscriberId: string;
+            authorId: string;
+          }>;
+        },
         args,
         context,
         info,
@@ -200,10 +236,18 @@ const UserType: GraphQLObjectType = new GraphQLObjectType({
               ),
             );
 
+            console.log(result);
+
             return result;
           });
 
           dataloaders.set(info.fieldNodes, dl);
+        }
+
+        if (parent.userSubscribedTo) {
+          return parent.userSubscribedTo.map((sub) => ({
+            id: sub.authorId,
+          }));
         }
 
         return dl?.load(parent.id);
@@ -212,7 +256,17 @@ const UserType: GraphQLObjectType = new GraphQLObjectType({
     subscribedToUser: {
       type: new GraphQLList(new GraphQLNonNull(UserType)),
       resolve: async (
-        parent: { id: string; subscribedToUser: object; userSubscribedTo: object },
+        parent: {
+          id: string;
+          subscribedToUser: Array<{
+            subscriberId: string;
+            authorId: string;
+          }>;
+          userSubscribedTo: Array<{
+            subscriberId: string;
+            authorId: string;
+          }>;
+        },
         args,
         context,
         info,
@@ -245,11 +299,19 @@ const UserType: GraphQLObjectType = new GraphQLObjectType({
               ),
             );
 
+            console.log(result[0][0].userSubscribedTo);
             return result;
           });
 
           dataloaders.set(info.fieldNodes, dl);
         }
+
+        if (parent.subscribedToUser) {
+          return parent.subscribedToUser.map((sub) => ({
+            id: sub.subscriberId,
+          }));
+        }
+    
 
         return dl?.load(parent.id);
       },
@@ -284,18 +346,17 @@ const RootQueryType = new GraphQLObjectType({
           dataloaders: WeakMap<object, DataLoader<string, IUserType | null>>;
           prisma: PrismaClient;
         };
+
         const parsedResolveInfoFragment = parseResolveInfo(info) as ResolveTree;
         const { fields } = simplifyParsedResolveInfoFragmentWithType(
           parsedResolveInfoFragment,
           UserType,
         ) as { fields: { userSubscribedTo?: object; subscribedToUser?: object } };
-        const includesSubscriptions = {} as {
-          subscribedToUser: boolean;
-          userSubscribedTo: boolean;
-        };
 
-        if (fields.subscribedToUser) includesSubscriptions.subscribedToUser = true;
-        if (fields.userSubscribedTo) includesSubscriptions.userSubscribedTo = true;
+        const includesSubscriptions = {
+          subscribedToUser: !!fields.subscribedToUser,
+          userSubscribedTo: !!fields.userSubscribedTo,
+        };
 
         return await prisma.user.findMany({
           include: includesSubscriptions,
