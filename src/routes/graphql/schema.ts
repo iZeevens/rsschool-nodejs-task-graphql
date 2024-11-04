@@ -17,7 +17,6 @@ import {
   IProfileType,
   IUserType,
   IMemberType,
-  ISubsriberType,
 } from './types/schemaTypes.js';
 import { randomUUID } from 'node:crypto';
 import DataLoader from 'dataloader';
